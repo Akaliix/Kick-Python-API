@@ -21,33 +21,38 @@ twIDAQAB
 
 def verify_signature(message_id, timestamp, body, signature_b64):
     public_key = serialization.load_pem_public_key(KICK_PUBLIC_KEY)
+    signed_data = f"{message_id}.{timestamp}.{body.decode()}".encode()
     signature = base64.b64decode(signature_b64)
-    data = f"{message_id}.{timestamp}.{body.decode()}".encode()
-    digest = hashes.Hash(hashes.SHA256())
-    digest.update(data)
-    hashed = digest.finalize()
+
     try:
         public_key.verify(
             signature,
-            hashed,
+            signed_data,  # Pass raw data, NOT pre-hashed
             padding.PKCS1v15(),
-            hashes.SHA256()
+            hashes.SHA256()  # Let it hash internally
         )
         return True
-    except Exception:
+    except Exception as e:
+        print("Signature verification error:", e)
         return False
 
 @app.post("/kick-webhook")
 async def kick_webhook(
     request: Request,
-    kick_event_message_id: str = Header(..., alias="Kick-Event-Message-Id"),
-    kick_event_signature: str = Header(..., alias="Kick-Event-Signature"),
-    kick_event_message_timestamp: str = Header(..., alias="Kick-Event-Message-Timestamp"),
-    kick_event_type: str = Header(..., alias="Kick-Event-Type"),
+    kick_event_message_id: str = Header(..., alias="kick-event-message-id"),
+    kick_event_signature: str = Header(..., alias="kick-event-signature"),
+    kick_event_message_timestamp: str = Header(..., alias="kick-event-message-timestamp"),
+    kick_event_type: str = Header(..., alias="kick-event-type"),
 ):
     body = await request.body()
+    #print("HEADERS:", dict(request.headers))
+    
     if not verify_signature(kick_event_message_id, kick_event_message_timestamp, body, kick_event_signature):
+        print("Invalid signature, skipping event handling")
         raise HTTPException(status_code=401, detail="Invalid signature")
+    else:
+        print("Signature verified successfully")
+    
     event = await request.json()
     print(f"Received event: {kick_event_type}")
     print(event)

@@ -42,6 +42,7 @@ class KickAPI:
         tokens = resp.json()
         self.access_token = tokens["access_token"]
         self.token_expiry = time.time() + tokens["expires_in"]
+        print("App access token obtained:", self.access_token)
         return self.access_token
 
     def get_user_access_token(self):
